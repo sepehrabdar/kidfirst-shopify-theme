@@ -1,0 +1,376 @@
+{% comment %}
+  CC Product Page
+  Layout : Sticky image gallery (left) | Scrollable details (right)
+  Features: Dual checkout (Physical / 3D Printable File), Metafield accordions
+
+  Metafields used (all under namespace "custom"):
+    offers_physical   – boolean  – product sold as a physical item (default: true)
+    offers_digital    – boolean  – product sold as 3D printable file
+    material          – text     – material info shown in accordion
+    dimensions        – text     – dimension info shown in accordion
+    has_ar_viewer     – boolean  – show AR viewer accordion
+    ar_model_url      – url      – link/USDZ for AR viewer
+    shipping_info     – text     – shipping & returns text
+{% endcomment %}
+
+{{ 'cc-custom.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'cc-checkout.js' | asset_url }}" defer></script>
+
+<script type="application/ld+json">{{ product | structured_data }}</script>
+
+{%- liquid
+  assign current_variant   = product.selected_or_first_available_variant
+
+  assign offers_physical   = product.metafields.custom.offers_physical.value
+  assign offers_digital    = product.metafields.custom.offers_digital.value
+  assign material_info     = product.metafields.custom.material.value
+  assign dimensions_info   = product.metafields.custom.dimensions.value
+  assign has_ar            = product.metafields.custom.has_ar_viewer.value
+  assign ar_model_url      = product.metafields.custom.ar_model_url.value
+  assign shipping_info     = product.metafields.custom.shipping_info.value
+
+  if offers_physical == nil
+    assign offers_physical = true
+  endif
+  if offers_digital == nil
+    assign offers_digital = false
+  endif
+
+  assign both_formats = false
+  if offers_physical and offers_digital
+    assign both_formats = true
+  endif
+-%}
+
+<div class="section-background color-{{ section.settings.color_scheme }}"></div>
+
+<div
+  class="cc-product-page color-{{ section.settings.color_scheme }}"
+  style="
+    padding-block-start: {{ section.settings.padding-block-start }}px;
+    padding-block-end: {{ section.settings.padding-block-end }}px;
+  "
+>
+
+  {% comment %} ============ LEFT: Media Gallery ============ {% endcomment %}
+  <cc-product-media class="cc-product-media">
+
+    {%- if product.images.size > 0 -%}
+      <img
+        src="{{ product.images[0] | image_url: width: 1200 }}"
+        alt="{{ product.images[0].alt | default: product.title | escape }}"
+        class="cc-product-media__main"
+        width="{{ product.images[0].width }}"
+        height="{{ product.images[0].height }}"
+        loading="eager"
+        fetchpriority="high"
+      >
+
+      {%- if product.images.size > 1 -%}
+        <div class="cc-product-media__thumbs">
+          {%- for image in product.images limit: 6 -%}
+            <img
+              src="{{ image | image_url: width: 160 }}"
+              alt="{{ image.alt | default: product.title | escape }}"
+              class="cc-product-media__thumb{% if forloop.first %} active{% endif %}"
+              data-full="{{ image | image_url: width: 1200 }}"
+              loading="lazy"
+              width="54"
+              height="54"
+            >
+          {%- endfor -%}
+        </div>
+      {%- endif -%}
+
+    {%- else -%}
+      {{ 'product-1' | placeholder_svg_tag: 'cc-product-media__main' }}
+    {%- endif -%}
+
+  </cc-product-media>
+
+  {% comment %} ============ RIGHT: Details ============ {% endcomment %}
+  <div class="cc-product-details">
+
+    {% comment %} Header {% endcomment %}
+    <div class="cc-product-details__header">
+      {%- if product.type != blank -%}
+        <span class="cc-product-details__category">{{ product.type }}</span>
+      {%- endif -%}
+
+      <h1 class="cc-product-details__title">{{ product.title }}</h1>
+
+      <div class="cc-product-details__price" id="cc-price-{{ product.id }}">
+        {%- if current_variant.compare_at_price > current_variant.price -%}
+          <span class="cc-price-sale">{{ current_variant.price | money }}</span>
+          <s class="cc-price-compare" style="opacity:0.45;font-weight:400;margin-left:8px;">{{ current_variant.compare_at_price | money }}</s>
+        {%- else -%}
+          {{ current_variant.price | money }}
+        {%- endif -%}
+      </div>
+    </div>
+
+    {% comment %} Description {% endcomment %}
+    {%- if product.description != blank -%}
+      <div class="cc-product-details__description rte">
+        {{ product.description }}
+      </div>
+    {%- endif -%}
+
+    {% comment %} ============ Checkout Flow ============ {% endcomment %}
+    <cc-checkout-flow
+      class="cc-checkout-flow"
+      data-product-id="{{ product.id }}"
+      data-product-handle="{{ product.handle }}"
+      data-offers-physical="{{ offers_physical }}"
+      data-offers-digital="{{ offers_digital }}"
+    >
+
+      {% comment %} --- Format Selector (shown only when both options exist) --- {% endcomment %}
+      <div
+        class="cc-format-selector"
+        data-section="format-selector"
+        {% unless both_formats %}hidden{% endunless %}
+      >
+        <button class="cc-format-btn" data-action="select-physical" type="button">
+          Finished Product
+          <span class="cc-format-btn__label">Physical item</span>
+        </button>
+        <button class="cc-format-btn" data-action="select-digital" type="button">
+          3D Printable File
+          <span class="cc-format-btn__label">Digital download</span>
+        </button>
+      </div>
+
+      {% comment %} --- Physical Flow --- {% endcomment %}
+      <div
+        class="cc-physical-flow"
+        data-section="physical-flow"
+        {% if both_formats %}hidden{% endif %}
+        {% unless offers_physical %}hidden{% endunless %}
+      >
+        <form id="product-form-{{ product.id }}" novalidate>
+          <input type="hidden" name="id" value="{{ current_variant.id }}" class="cc-variant-id-input">
+
+          {% comment %} Variant options {% endcomment %}
+          {%- unless product.has_only_default_variant -%}
+            {%- for option in product.options_with_values -%}
+              {%- assign is_color = false -%}
+              {%- if option.name == 'Color' or option.name == 'Colour' -%}
+                {%- assign is_color = true -%}
+              {%- endif -%}
+
+              <div class="cc-variant-group">
+                <div class="cc-variant-group__label">
+                  {{ option.name }}:&nbsp;<span class="cc-selected-value" data-option="{{ option.name }}">{{ option.selected_value }}</span>
+                </div>
+
+                <div class="cc-variant-options">
+                  {%- for value in option.values -%}
+                    {%- assign clean_value = value | downcase | remove: ' ' | remove: "'" -%}
+                    <button
+                      type="button"
+                      class="cc-variant-option{% if is_color %} cc-variant-option--swatch{% endif %}{% if option.selected_value == value %} selected{% endif %}"
+                      data-option-name="{{ option.name }}"
+                      data-option-value="{{ value }}"
+                      {%- if is_color %}
+                        style="--swatch-bg: {{ clean_value }};"
+                        aria-label="{{ value }}"
+                        title="{{ value }}"
+                      {%- endif %}
+                    >
+                      {%- unless is_color -%}{{ value }}{%- endunless -%}
+                    </button>
+                  {%- endfor -%}
+                </div>
+              </div>
+
+            {%- endfor -%}
+          {%- endunless -%}
+
+          {% comment %} Quantity {% endcomment %}
+          <div class="cc-quantity-row">
+            <div class="cc-quantity-selector">
+              <button type="button" class="cc-quantity-btn" data-action="decrease-qty" aria-label="Decrease quantity">−</button>
+              <input
+                type="number"
+                name="quantity"
+                value="1"
+                min="1"
+                class="cc-quantity-input"
+                aria-label="Quantity"
+              >
+              <button type="button" class="cc-quantity-btn" data-action="increase-qty" aria-label="Increase quantity">+</button>
+            </div>
+          </div>
+
+          {% comment %} Add to Cart {% endcomment %}
+          <button
+            type="button"
+            class="cc-add-to-cart-btn"
+            {% unless current_variant.available %}disabled{% endunless %}
+          >
+            {%- if current_variant.available -%}Add to Cart{%- else -%}Sold Out{%- endif -%}
+          </button>
+
+        </form>
+      </div>
+
+      {% comment %} --- Digital Flow --- {% endcomment %}
+      <div
+        class="cc-digital-flow"
+        data-section="digital-flow"
+        {% if both_formats %}hidden{% endif %}
+        {% unless offers_digital %}hidden{% endunless %}
+      >
+        <div class="cc-digital-info">
+          Download a high-resolution 3D printable file (STL / OBJ) ready to print at home or at your local print shop.
+        </div>
+
+        <div class="cc-tnc-area">
+          <label class="cc-tnc-label">
+            <input type="checkbox" class="cc-tnc-checkbox" aria-required="true">
+            <span>
+              I agree to the
+              <a href="/pages/terms-conditions" target="_blank">Terms &amp; Conditions</a>
+              for digital products. I understand this purchase is non-refundable and for personal use only.
+            </span>
+          </label>
+
+          <button
+            type="button"
+            class="cc-add-to-cart-btn cc-digital-checkout-btn"
+            disabled
+          >
+            Proceed to Checkout
+          </button>
+        </div>
+      </div>
+
+    </cc-checkout-flow>
+
+    {% comment %} ============ Metafield Accordions ============ {% endcomment %}
+    <div class="cc-accordions">
+
+      {% comment %} Material {% endcomment %}
+      <div class="cc-accordion">
+        <button class="cc-accordion__trigger" type="button" aria-expanded="false">
+          Materials
+          <span class="cc-accordion__icon" aria-hidden="true"></span>
+        </button>
+        <div class="cc-accordion__body">
+          {%- if material_info != blank -%}
+            {{ material_info }}
+          {%- else -%}
+            <p>Material information will be listed here.</p>
+          {%- endif -%}
+        </div>
+      </div>
+
+      {% comment %} Dimensions {% endcomment %}
+      <div class="cc-accordion">
+        <button class="cc-accordion__trigger" type="button" aria-expanded="false">
+          Dimensions
+          <span class="cc-accordion__icon" aria-hidden="true"></span>
+        </button>
+        <div class="cc-accordion__body">
+          {%- if dimensions_info != blank -%}
+            {{ dimensions_info }}
+          {%- else -%}
+            <p>Dimension details will be listed here.</p>
+          {%- endif -%}
+        </div>
+      </div>
+
+      {% comment %} AR Viewer {% endcomment %}
+      {%- if has_ar -%}
+        <div class="cc-accordion">
+          <button class="cc-accordion__trigger" type="button" aria-expanded="false">
+            View in AR
+            <span class="cc-accordion__icon" aria-hidden="true"></span>
+          </button>
+          <div class="cc-accordion__body">
+            <p>Experience this product in your own space using augmented reality.</p>
+            {%- if ar_model_url != blank -%}
+              <a href="{{ ar_model_url }}" class="cc-ar-btn" rel="ar">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M12 2 2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                </svg>
+                Launch AR Viewer
+              </a>
+            {%- endif -%}
+          </div>
+        </div>
+      {%- endif -%}
+
+      {% comment %} Shipping {% endcomment %}
+      <div class="cc-accordion">
+        <button class="cc-accordion__trigger" type="button" aria-expanded="false">
+          Shipping &amp; Returns
+          <span class="cc-accordion__icon" aria-hidden="true"></span>
+        </button>
+        <div class="cc-accordion__body">
+          {%- if shipping_info != blank -%}
+            {{ shipping_info }}
+          {%- else -%}
+            <table>
+              <tr><td>Processing</td><td>3–5 business days</td></tr>
+              <tr><td>Standard shipping</td><td>5–8 business days</td></tr>
+              <tr><td>Express shipping</td><td>2–3 business days</td></tr>
+              <tr><td>Returns</td><td>Accepted within 30 days for undamaged items</td></tr>
+            </table>
+          {%- endif -%}
+        </div>
+      </div>
+
+    </div>
+    {% comment %} end accordions {% endcomment %}
+
+  </div>
+  {% comment %} end details {% endcomment %}
+
+</div>
+{% comment %} end cc-product-page {% endcomment %}
+
+{% schema %}
+{
+  "name": "CC Product Page",
+  "tag": "section",
+  "class": "cc-product-page-section",
+  "enabled_on": {
+    "templates": ["product"]
+  },
+  "settings": [
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "scheme-1"
+    },
+    {
+      "type": "header",
+      "content": "Padding"
+    },
+    {
+      "type": "range",
+      "id": "padding-block-start",
+      "label": "Top",
+      "min": 0,
+      "max": 100,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "padding-block-end",
+      "label": "Bottom",
+      "min": 0,
+      "max": 100,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    }
+  ],
+  "presets": []
+}
+{% endschema %}

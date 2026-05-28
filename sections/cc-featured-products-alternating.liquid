@@ -1,0 +1,200 @@
+{% comment %}
+  CC Featured Products — Alternating Layout
+  For use on the homepage / landing page.
+  Pick a collection to pull products from, and they'll render in
+  the same alternating image-left / image-right rows as the collection page.
+{% endcomment %}
+
+{{ 'cc-custom.css' | asset_url | stylesheet_tag }}
+
+{%- liquid
+  assign featured_collection = section.settings.collection
+  assign max_products        = section.settings.max_products | default: 4
+  assign heading             = section.settings.heading
+  assign subheading          = section.settings.subheading
+-%}
+
+<div
+  class="cc-featured-products-wrapper color-{{ section.settings.color_scheme }}"
+  style="
+    padding-block-start: {{ section.settings.padding-block-start }}px;
+    padding-block-end: {{ section.settings.padding-block-end }}px;
+  "
+>
+  <div class="section-background color-{{ section.settings.color_scheme }}"></div>
+
+  <div class="cc-featured-products">
+
+    {%- if heading != blank or subheading != blank -%}
+      <div style="margin-bottom: 56px;">
+        {%- if heading != blank -%}
+          <h2 class="cc-featured-products__heading">{{ heading }}</h2>
+        {%- endif -%}
+        {%- if subheading != blank -%}
+          <p class="cc-featured-products__subheading">{{ subheading }}</p>
+        {%- endif -%}
+      </div>
+    {%- endif -%}
+
+    {%- if featured_collection != blank -%}
+
+      {%- for product in featured_collection.products limit: max_products -%}
+        {%- assign reversed = forloop.index0 | modulo: 2 -%}
+
+        <div class="cc-alt-product-row{% if reversed == 1 %} cc-alt-product-row--reversed{% endif %}">
+
+          <a
+            href="{{ product.url }}"
+            class="cc-alt-product-image"
+            aria-hidden="true"
+            tabindex="-1"
+          >
+            {%- if product.featured_image -%}
+              {{
+                product.featured_image
+                | image_url: width: 900
+                | image_tag:
+                  loading: 'lazy',
+                  alt: product.featured_image.alt | default: product.title | escape,
+                  widths: '450, 600, 750, 900'
+              }}
+            {%- else -%}
+              {{ 'product-1' | placeholder_svg_tag }}
+            {%- endif -%}
+          </a>
+
+          <div class="cc-alt-product-info">
+            {%- if product.type != blank -%}
+              <span class="cc-alt-product-info__label">{{ product.type }}</span>
+            {%- endif -%}
+
+            <h3 class="cc-alt-product-info__title">
+              <a href="{{ product.url }}">{{ product.title }}</a>
+            </h3>
+
+            <div class="cc-alt-product-info__price">
+              {%- render 'price', product_resource: product, show_sale_price_first: true -%}
+            </div>
+
+            {%- if product.description != blank -%}
+              <p class="cc-alt-product-info__description">
+                {{ product.description | strip_html | truncate: 220 }}
+              </p>
+            {%- endif -%}
+
+            <a href="{{ product.url }}" class="cc-alt-product-info__cta">
+              View Product
+              <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
+                <path d="M2.5 7.5h10M9 3.5l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </a>
+          </div>
+
+        </div>
+      {%- endfor -%}
+
+      {%- if section.settings.show_view_all and featured_collection.products_count > max_products -%}
+        <div style="text-align: center; padding: 48px 0 16px;">
+          <a href="{{ featured_collection.url }}" class="cc-alt-product-info__cta">
+            View All Products
+            <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
+              <path d="M2.5 7.5h10M9 3.5l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </a>
+        </div>
+      {%- endif -%}
+
+    {%- else -%}
+      {%- comment -%} Placeholder for theme editor {%- endcomment -%}
+      {%- for i in (1..2) -%}
+        {%- assign reversed = forloop.index0 | modulo: 2 -%}
+        <div class="cc-alt-product-row{% if reversed == 1 %} cc-alt-product-row--reversed{% endif %}">
+          <div class="cc-alt-product-image">
+            {{ 'product-1' | placeholder_svg_tag }}
+          </div>
+          <div class="cc-alt-product-info">
+            <span class="cc-alt-product-info__label">Category</span>
+            <h3 class="cc-alt-product-info__title">Sample Product Title</h3>
+            <div class="cc-alt-product-info__price">$99.00</div>
+            <p class="cc-alt-product-info__description">Select a collection in the section settings to display your products here in this alternating layout.</p>
+          </div>
+        </div>
+      {%- endfor -%}
+    {%- endif -%}
+
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "Featured Products (Alternating)",
+  "settings": [
+    {
+      "type": "collection",
+      "id": "collection",
+      "label": "Collection"
+    },
+    {
+      "type": "range",
+      "id": "max_products",
+      "label": "Max products to show",
+      "min": 1,
+      "max": 12,
+      "step": 1,
+      "default": 4
+    },
+    {
+      "type": "checkbox",
+      "id": "show_view_all",
+      "label": "Show \"View All\" button",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Our Products"
+    },
+    {
+      "type": "text",
+      "id": "subheading",
+      "label": "Subheading"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "scheme-1"
+    },
+    {
+      "type": "header",
+      "content": "Padding"
+    },
+    {
+      "type": "range",
+      "id": "padding-block-start",
+      "label": "Top",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 80
+    },
+    {
+      "type": "range",
+      "id": "padding-block-end",
+      "label": "Bottom",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 80
+    }
+  ],
+  "presets": [
+    {
+      "name": "Featured Products (Alternating)"
+    }
+  ]
+}
+{% endschema %}

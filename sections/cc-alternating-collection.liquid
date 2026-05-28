@@ -1,0 +1,155 @@
+{% comment %}
+  CC Alternating Collection Layout
+  Products display in alternating image-left / image-right rows.
+  Used on /collections/* pages.
+{% endcomment %}
+
+{{ 'cc-custom.css' | asset_url | stylesheet_tag }}
+
+{% liquid
+  assign products_per_page = section.settings.products_per_page | default: 12
+%}
+
+<div
+  class="cc-alt-collection-wrapper color-{{ section.settings.color_scheme }}"
+  style="
+    padding-block-start: {{ section.settings.padding-block-start }}px;
+    padding-block-end: {{ section.settings.padding-block-end }}px;
+  "
+>
+  <div class="section-background color-{{ section.settings.color_scheme }}"></div>
+
+  <div class="cc-alt-collection">
+    {% paginate collection.products by products_per_page %}
+
+      {% for product in collection.products %}
+        {%- assign reversed = forloop.index0 | modulo: 2 -%}
+
+        <div class="cc-alt-product-row{% if reversed == 1 %} cc-alt-product-row--reversed{% endif %}">
+
+          {%- comment -%} Image {%- endcomment -%}
+          <a
+            href="{{ product.url }}"
+            class="cc-alt-product-image"
+            aria-hidden="true"
+            tabindex="-1"
+          >
+            {%- if product.featured_image -%}
+              {{
+                product.featured_image
+                | image_url: width: 900
+                | image_tag:
+                  loading: 'lazy',
+                  alt: product.featured_image.alt | default: product.title | escape,
+                  widths: '450, 600, 750, 900',
+                  class: ''
+              }}
+            {%- else -%}
+              {{ 'product-1' | placeholder_svg_tag }}
+            {%- endif -%}
+          </a>
+
+          {%- comment -%} Info {%- endcomment -%}
+          <div class="cc-alt-product-info">
+
+            {%- if product.type != blank -%}
+              <span class="cc-alt-product-info__label">{{ product.type }}</span>
+            {%- endif -%}
+
+            <h2 class="cc-alt-product-info__title">
+              <a href="{{ product.url }}">{{ product.title }}</a>
+            </h2>
+
+            <div class="cc-alt-product-info__price">
+              {%- render 'price', product_resource: product, show_sale_price_first: true -%}
+            </div>
+
+            {%- if product.description != blank -%}
+              <p class="cc-alt-product-info__description">
+                {{ product.description | strip_html | truncate: 220 }}
+              </p>
+            {%- endif -%}
+
+            <a href="{{ product.url }}" class="cc-alt-product-info__cta">
+              View Product
+              <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
+                <path d="M2.5 7.5h10M9 3.5l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </a>
+
+          </div>
+
+        </div>
+      {% else %}
+
+        {%- comment -%} Empty state {%- endcomment -%}
+        <p style="padding: 60px 0; text-align: center; opacity: 0.5;">
+          No products found in this collection.
+        </p>
+
+      {% endfor %}
+
+      {%- if paginate.pages > 1 -%}
+        <div class="cc-pagination">
+          {{ paginate | default_pagination }}
+        </div>
+      {%- endif -%}
+
+    {% endpaginate %}
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "Alternating Products",
+  "enabled_on": {
+    "templates": ["collection"]
+  },
+  "settings": [
+    {
+      "type": "range",
+      "id": "products_per_page",
+      "label": "Products per page",
+      "min": 2,
+      "max": 24,
+      "step": 2,
+      "default": 12
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "scheme-1"
+    },
+    {
+      "type": "header",
+      "content": "Padding"
+    },
+    {
+      "type": "range",
+      "id": "padding-block-start",
+      "label": "Top",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "range",
+      "id": "padding-block-end",
+      "label": "Bottom",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 60
+    }
+  ],
+  "presets": [
+    {
+      "name": "Alternating Products"
+    }
+  ]
+}
+{% endschema %}

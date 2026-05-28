@@ -50,14 +50,8 @@
             tabindex="-1"
           >
             {%- if product.featured_image -%}
-              {{
-                product.featured_image
-                | image_url: width: 900
-                | image_tag:
-                  loading: 'lazy',
-                  alt: product.featured_image.alt | default: product.title | escape,
-                  widths: '450, 600, 750, 900'
-              }}
+              {%- assign img_alt = product.featured_image.alt | default: product.title | escape -%}
+              {{ product.featured_image | image_url: width: 900 | image_tag: loading: 'lazy', alt: img_alt, widths: '450, 600, 750, 900' }}
             {%- else -%}
               {{ 'product-1' | placeholder_svg_tag }}
             {%- endif -%}
